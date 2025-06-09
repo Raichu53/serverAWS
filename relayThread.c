@@ -4,26 +4,45 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include "main.h"
 
-void* relay_thread(void* args) {
-	ThreadArgs* targs = (ThreadArgs*)args;
-	char buffer[BUFFER_SIZE];
+void* relay_thread(void* args) 
+{
+    ThreadArgs* targs = (ThreadArgs*)args;
+    
+    char buffer[BUFFER_SIZE];
+    int run = 1;
+    
+    while (run) 
+    {
+        int value,total = 0;
+        memset(buffer,0,BUFFER_SIZE);
+        do
+        {
+            int len = recv(targs->from_fd, buffer + total, BUFFER_SIZE - total, 0);
+            
+            if(0 >= len)
+            {
+                //socket ferme ou erreur inconnue
+                printf("socket error: %s\n",strerror(errno));
+                run = 0;
+                break;
+            }
 
-	while (1) {
-		int len = recv(targs->from_fd, buffer, BUFFER_SIZE, -1);
-		if (len <= 0) {
-			printf("[%s] Connection closed or error.\n", targs->name);
-			break;
-		}
-		buffer[len] = '\0';
-		printf("[%s] Received: %s\n", targs->name, buffer);
-		send(targs->to_fd, buffer, len, 0);
-	}
+            total += len;
+        } while(total != BUFFER_SIZE);
 
-	close(targs->from_fd);
-	close(targs->to_fd);
-	free(targs);
-	return NULL;
+        if(run) 
+        {
+            memcpy(&value, buffer, BUFFER_SIZE);
+            printf("[%s] Received: %x\n", targs->name, ntohl(value));
+            //envoyer data au program principal pour traitement
+        }
+    }
+
+    close(targs->from_fd);
+    free(targs);
+    return NULL;
 }
