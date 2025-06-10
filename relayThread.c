@@ -28,18 +28,17 @@ void* relay_thread(void* args)
                 //socket ferme ou erreur inconnue
                 printf("socket error: %s\n",strerror(errno));
                 run = 0;
-                break;
-            }
-
-            total += len;
-        } while(total != BUFFER_SIZE);
-
-        if(run) 
-        {
-            memcpy(&value, buffer, BUFFER_SIZE);
-            printf("[%s] Received: %x\n", targs->name, ntohl(value));
-            //envoyer data au program principal pour traitement
-        }
+            } else {
+				total += len;
+			}
+			
+			if(total == BUFFER_SIZE)
+			{
+				memcpy(&value, buffer, BUFFER_SIZE);
+				printf("[%s] Received: %x\n", targs->name, ntohl(value));
+				//envoyer data au program principal pour traitement
+			}
+        } while(total != BUFFER_SIZE && run);
     }
 
     close(targs->from_fd);
