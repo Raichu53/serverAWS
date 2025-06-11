@@ -5,8 +5,13 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "main.h"
+#include "queue.h"
+#include "parser.h"
+
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 int create_listener(int port) {
 
@@ -26,34 +31,55 @@ int create_listener(int port) {
 
 int main() {
 
-    int phone_listener = create_listener(PORT_PHONE);
-    int iot_listener = create_listener(PORT_IOT);
+    int phone_listener,iot_listener,phone_fd,iot_fd = 0;
+    phone_listener = create_listener(PORT_PHONE);
+    iot_listener = create_listener(PORT_IOT);
 
     printf("Waiting for Phone to connect...\n");
-    int phone_fd = accept(phone_listener, NULL, NULL);
+    phone_fd = accept(phone_listener, NULL, NULL);
     printf("connected!\n");
 
     printf("Waiting for plane to connect...\n");
-    int iot_fd = accept(iot_listener, NULL, NULL);
+    iot_fd = accept(iot_listener, NULL, NULL);
     printf("connected!\n");
+
+    ThreadArgs* phone_args  = malloc(sizeof(ThreadArgs));
+    ThreadArgs* iot_args    = malloc(sizeof(ThreadArgs));
+    Queue_t*    events      = malloc(sizeof(Queue_t));
     
-    pthread_t phone_thread, iot_thread;
+    if( phone_args != NULL && iot_args != NULL && events != NULL )
+    {
+        phone_args->from_fd = phone_fd;
+        phone_args->name = "Phone";
+        phone_args->events = events;
+        iot_args->from_fd = iot_fd;
+        iot_args->name = "Plane";
+        iot_args->events = events;
 
-    ThreadArgs* phone_args = malloc(sizeof(ThreadArgs));
-    phone_args->from_fd = phone_fd;
-    phone_args->name = "Phone";
+        initQueue(events);
+        pthread_t phone_thread, iot_thread;
+        
+        pthread_create(&phone_thread, NULL, relay_thread, phone_args);
+        pthread_create(&iot_thread, NULL, relay_thread, iot_args);
 
-    ThreadArgs* iot_args = malloc(sizeof(ThreadArgs));
-    iot_args->from_fd = iot_fd;
-    iot_args->name = "Plane";
-
- 
-    pthread_create(&phone_thread, NULL, relay_thread, phone_args);
-    pthread_create(&iot_thread, NULL, relay_thread, iot_args);
-
-    pthread_join(phone_thread, NULL);
-    pthread_join(iot_thread, NULL);
-
+        bool run = 1;
+        while(run)
+        {
+            while(!isEmpty(events))
+            {
+                pthread_mutex_lock(&lock);
+                parse_buffer(*(events->items));
+                pop_front(events);
+                pthread_mutex_unlock(&lock);
+            }
+        }
+        
+        pthread_join(phone_thread, NULL);
+        pthread_join(iot_thread, NULL); 
+        
+    }
+    
+    deleteQueue(events);
     close(phone_listener);
     close(iot_listener);
 

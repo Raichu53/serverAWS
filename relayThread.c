@@ -7,17 +7,18 @@
 #include <errno.h>
 
 #include "main.h"
+#include "queue.h"
 
 void* relay_thread(void* args) 
 {
     ThreadArgs* targs = (ThreadArgs*)args;
     
-    char buffer[BUFFER_SIZE];
+    unsigned char buffer[BUFFER_SIZE];
     int run = 1;
     
     while (run) 
     {
-        int value,total = 0;
+        int total = 0;
         memset(buffer,0,BUFFER_SIZE);
         do
         {
@@ -34,10 +35,11 @@ void* relay_thread(void* args)
 			
 			if(total == BUFFER_SIZE)
 			{
-				memcpy(&value, buffer, BUFFER_SIZE);
-				printf("[%s] Received: %x\n", targs->name, ntohl(value));
-				//envoyer data au program principal pour traitement
+                pthread_mutex_lock(&lock);
+                push_back(targs->events,buffer);
+                pthread_mutex_unlock(&lock);
 			}
+			
         } while(total != BUFFER_SIZE && run);
     }
 
