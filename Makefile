@@ -1,16 +1,17 @@
 CC=gcc
-CFLAGS=-I. -Wall -pthread
-HEADERS=main.h
-OBJS=main.o relayThread.o 
+CFLAGS=-IInc -Wextra -pthread
+HEADERS=main.h queue.h parser.h relayThread.h
+SRC=Src/main.c Src/relayThread.c Src/parser.c Src/queue.c
+OBJS=$(SRC:.c=.o)
+TARGET=main.out
 
-main.out: $(OBJS)
+$(TARGET): $(OBJS)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 %.o : %.c $(HEADERS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 	
-all:
-	main.out
+all: $(TARGET)
 
 clean: 
-	rm *.out *.o
+	rm $(TARGET) $(OBJS)
