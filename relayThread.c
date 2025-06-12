@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include "main.h"
 #include "queue.h"
@@ -14,9 +15,8 @@ void* relay_thread(void* args)
     ThreadArgs* targs = (ThreadArgs*)args;
     
     unsigned char buffer[BUFFER_SIZE];
-    int run = 1;
     
-    while (run) 
+    while (atomic_load(targs->run)) 
     {
         int total = 0;
         memset(buffer,0,BUFFER_SIZE);
@@ -28,19 +28,30 @@ void* relay_thread(void* args)
             {
                 //socket ferme ou erreur inconnue
                 printf("socket error: %s\n",strerror(errno));
-                run = 0;
-            } else {
+                break;
+            } else 
 				total += len;
-			}
+			
 			
 			if(total == BUFFER_SIZE)
 			{
-                pthread_mutex_lock(&lock);
-                push_back(targs->events,buffer);
-                pthread_mutex_unlock(&lock);
+                if(buffer[FROM_BYTE_POS] ==  FROM_DEVICE_BYTE )
+                {
+                    pthread_mutex_lock(&(targs->lock));
+                    push_back(targs->events,buffer);
+                    pthread_mutex_unlock(&(targs->lock));
+                }
+                else if(buffer[FROM_BYTE_POS] == FROM_MAIN_BYTE )
+                {
+                    
+                }
+                else
+                {
+                    printf("\033[0;31munknown from_byte value : %x\033[0m\n",buffer[FROM_BYTE_POS]);
+                }
 			}
 			
-        } while(total != BUFFER_SIZE && run);
+        } while(total != BUFFER_SIZE && total < BUFFER_SIZE);
     }
 
     close(targs->from_fd);

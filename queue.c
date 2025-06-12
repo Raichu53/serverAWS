@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 
 #include "main.h"
 #include "queue.h"
@@ -13,7 +14,13 @@ void initQueue( Queue_t* q )
     
     for(int i = 0 ; i < MAX_MSG; i++)
     {
+        q->items[i] = NULL;
         q->items[i] = malloc(BUFFER_SIZE);
+        if(q->items[i] == NULL)
+        {
+            printf("failed to create queue : %s\n",strerror(errno));
+            break;
+        }
     }
 }
 
@@ -25,8 +32,8 @@ void deleteQueue( Queue_t* q )
         {
             free(q->items[i]);
         }
+        free(q);
     }
-    free(q);
 }
 
 bool isEmpty( Queue_t* q )
