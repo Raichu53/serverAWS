@@ -64,9 +64,12 @@ void push_back ( Queue_t* q,  unsigned char* buf )
 void pop_front( Queue_t* q )
 {
     int sz = getSize(q);
-    for(int i = 1; i < sz; i++)
+    if(!isEmpty(q))
     {
-        q->items[i-1] = q->items[i];
+        for(int i = 1; i < sz; i++)
+        {
+            q->items[i-1] = q->items[i];
+        }
+        q->rear -= 1;
     }
-    q->rear -= 1;
 }
