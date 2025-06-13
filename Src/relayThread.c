@@ -19,6 +19,7 @@ void* relay_thread(void* args)
     while (atomic_load(targs->run)) 
     {
         int total = 0;
+        bool stop = 0;
         memset(buffer,0,BUFFER_SIZE);
         do
         {
@@ -26,35 +27,55 @@ void* relay_thread(void* args)
             
             if(0 >= len)
             {
-                //socket ferme ou erreur inconnue
-                printf("socket error: %s\n",strerror(errno));
-                break;
+                if( 0 == len )
+                    printf("[%s_thread] : \033[0;31m client disconnected\033[0m\n",targs->name);
+                else 
+                    printf("[%s_thread] : \033[0;31m recv unknown error: %s\033[0m\n",targs->name,strerror(errno));
+                
+                atomic_store(targs->run,0);
+                stop = 1;
             } else 
 				total += len;
 			
 			
 			if(total == BUFFER_SIZE)
 			{
-                if(buffer[FROM_BYTE_POS] ==  FROM_DEVICE_BYTE )
+                switch(buffer[FROM_BYTE_POS])
                 {
-                    pthread_mutex_lock(&(targs->lock));
-                    push_back(targs->events,buffer);
-                    pthread_mutex_unlock(&(targs->lock));
-                }
-                else if(buffer[FROM_BYTE_POS] == FROM_MAIN_BYTE )
-                {
+                    case FROM_DEVICE_BYTE:
+                        pthread_mutex_lock(&(targs->lock));
+                        push_back(targs->events,buffer);
+                        pthread_mutex_unlock(&(targs->lock));
+                        break;
+                        
+                    case FROM_MAIN_BYTE:
+                        len = send(targs->from_fd,buffer,BUFFER_SIZE,0);
                     
-                }
-                else
-                {
-                    printf("\033[0;31munknown from_byte value : %x\033[0m\n",buffer[FROM_BYTE_POS]);
+                        if(0 >= len)
+                        {
+                            printf("[%s_thread] : \033[0;31msend error: %s\033[0m\n",targs->name,strerror(errno));
+                            atomic_store(targs->run,0);
+                            stop = 1;
+                        }
+                        else
+                        {
+                            printf("[%s_thread] : %d bytes sent to %s_client\n",targs->name,len,targs->name);
+                        }
+                        break;
+                        
+                    default:
+                        printf("[%s_thread] : \033[0;31munknown from_byte value : %x\033[0m\n",
+                               targs->name,buffer[FROM_BYTE_POS]);
+                        stop = 1;
+                        break;
                 }
 			}
 			
-        } while(total != BUFFER_SIZE && total < BUFFER_SIZE);
+        } while(total != BUFFER_SIZE && !stop);
     }
 
     close(targs->from_fd);
+    printf("\033[0;32m[%s_thread] : finished successfully\033[0m\n",targs->name);
     free(targs);
     return NULL;
 }
