@@ -48,6 +48,7 @@ int main() {
     ThreadArgs* iot_args    = malloc(sizeof(ThreadArgs));
     
     atomic_bool*    run       = malloc(sizeof(atomic_bool));
+    atomic_init(run,1);
     pthread_mutex_t planeLock = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_t phoneLock = PTHREAD_MUTEX_INITIALIZER;
     
@@ -55,7 +56,6 @@ int main() {
     Queue_t*    plane_events      = malloc(sizeof(Queue_t));
     initQueue(phone_events);
     initQueue(plane_events);
-    atomic_init(run,1);
     
     if( phone_args != NULL && iot_args != NULL )
     {
@@ -85,6 +85,8 @@ int main() {
                 memset(f,0,sizeof(Frame));
                 parse_buffer(*(phone_events->items),f);                
                 pop_front(phone_events);
+                
+                f->fromByte = FROM_MAIN_BYTE;
                 len = send(iot_fd, f, sizeof(Frame), 0);
                 printf("[Main_thread] : %d bytes sent to Plane_thread\n",len);
             }
@@ -96,6 +98,8 @@ int main() {
                 memset(f,0,sizeof(Frame));
                 parse_buffer(*(plane_events->items),f);
                 pop_front(plane_events);
+                
+                f->fromByte = FROM_MAIN_BYTE;
                 len = send(phone_fd, f, sizeof(Frame), 0);
                 printf("[Main_thread] : %d bytes sent to Phone_thread\n",len);
             }
