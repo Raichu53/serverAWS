@@ -24,7 +24,7 @@ void initQueue( Queue_t* q )
     }
 }
 
-void deleteQueue( Queue_t* q )
+void deleteItems( Queue_t* q )
 {
     if(q != NULL)
     {
@@ -32,7 +32,6 @@ void deleteQueue( Queue_t* q )
         {
             free(q->items[i]);
         }
-        free(q);
     }
 }
 

@@ -5,4 +5,9 @@ struct Frame;
 
 bool parse_buffer ( unsigned char* buffer, Frame* f );
 void printFrame( Frame* f );
+uint8_t checkFrame( Frame* f );
+bool isCMDidValid(uint8_t cID);
+const char* codeTostring(uint8_t errCode);
+// bool isPayloadCoherent(uint8_t cID);
 #endif //__PARSER_HEADER__
+

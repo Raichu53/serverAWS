@@ -11,12 +11,11 @@
 
 bool parse_buffer ( unsigned char* buffer, Frame* f ) 
 {
-    int dataSz = 0;
-    printf("translating raw buffer to frame\n");
+    bool status = 0;
+    int dataSz,ret = 0;
     
     dataSz = sizeof(f->preambule);
     memcpy(&(f->preambule),buffer,dataSz);
-    f->preambule = ntohs(f->preambule);
     buffer += dataSz;
     
     dataSz = sizeof(f->fromByte);
@@ -27,51 +26,127 @@ bool parse_buffer ( unsigned char* buffer, Frame* f )
     memcpy(&(f->commandID),buffer,dataSz);
     buffer += dataSz;
     
-    dataSz = sizeof(f->argSz);
-    memcpy(&(f->argSz),buffer,dataSz);
+    dataSz = sizeof(f->payloadSz);
+    memcpy(&(f->payloadSz),buffer,dataSz);
     buffer += dataSz;
     
-    dataSz = sizeof(uint32_t);
-    for(int i = 0 ; i < MAX_ARGS; i++)
+    dataSz = f->payloadSz;
+    if(f->payloadSz < MAX_ARGS)
     {
-        if( i < f->argSz)
-        {
-            memcpy(&(f->args[i]),buffer,dataSz);
-            f->args[i] = ntohl(f->args[i]);
-            buffer += dataSz;
-        }
-        else
-        {
-            dataSz *= (MAX_ARGS - i);
-            memset(&(f->args[i]),0,dataSz);
-            buffer += dataSz;
-            break;
-        }
+        memcpy(&(f->payload),buffer,dataSz);
+        buffer += dataSz;
+        
+        memset((&(f->payload)) + f->payloadSz, 0, (MAX_ARGS - f->payloadSz));
+        buffer += (MAX_ARGS - f->payloadSz); 
     }
-    
-    dataSz = sizeof(f->reserved);
-    memset(&(f->reserved),0,dataSz);
-    buffer += dataSz;
+    else
+    {
+        memset(&(f->payload),0,MAX_ARGS);
+        buffer += MAX_ARGS;
+    }
     
     dataSz = sizeof(f->postambule);
     memcpy(&(f->postambule),buffer,dataSz);
-    f->postambule = ntohs(f->postambule);
     buffer += dataSz;
     
-    printFrame(f);
+    ret = checkFrame(f);
+    if(ret)
+    {
+        printf("[Main_thread] :\033[0;31m checkFrame returned error code %d (%s)\033[0m\n",
+               ret,codeTostring(ret));
+        status = 1;
+    }
+    else
+    {
+       printFrame(f);
+    }
     
-    return 1;
+    return status;
+}
+
+uint8_t checkFrame( Frame* f )
+{
+    uint8_t status = 0;
+    if(ntohs(f->preambule) != PREAMBULE) status = BAD_PREAMBULE;
+    
+    else if(f->fromByte != FROM_DEVICE_BYTE) status = BAD_FROM_BYTE;
+    
+    else if(0 == isCMDidValid(f->commandID)) status = BAD_COMMANDID;
+    
+    else if(MAX_ARGS < f->payloadSz) status = PAYLOAD_TOO_BIG;
+    
+    else if(ntohs(f->postambule) != POSTAMBULE) status = BAD_POSTAMBULE;
+ 
+    return status;
+}
+const char* codeTostring(uint8_t errCode)
+{
+    switch(errCode)
+    {
+        case BAD_PREAMBULE:
+            return "BAD_PREAMBULE";
+        case BAD_FROM_BYTE:
+            return "BAD_FROM_BYTE";
+        case BAD_COMMANDID:
+            return "BAD_COMMANDID";
+        case BAD_POSTAMBULE:
+            return "BAD_POSTAMBULE";
+        case PAYLOAD_TOO_BIG:
+            return "PAYLOAD_TOO_BIG";
+        default:
+            break;
+    }
+    return "UNKNOWN";
+}
+/*
+bool isPayloadCoherent(uint8_t cID,uint8_t pSz)
+{
+    bool status = 1;
+    switch (cID)
+    {
+        case TELEMETRY:
+            if(pSz != TELEMETRY_P_SZ){
+                status = 0;
+            }
+            break;
+        case MOTOR_SPEED:
+            if(pSz != MOTOR_SPEED_P_SZ){
+                status = 0;
+            }
+            break;
+        default:
+            status = 0;
+            break;
+        
+    }
+    return status;
+}
+*/
+bool isCMDidValid(uint8_t cID) 
+{
+    bool status = 1;
+    switch(cID)
+    {
+        case TELEMETRY:
+            break;
+        case MOTOR_SPEED:
+            break;
+        default:
+            status = 0;
+            break;
+    }
+    return status;
 }
 
 void printFrame( Frame* f )
 {
     printf("preambule: \033[0;36m0x%04x\033[0m, fromByte: \033[0;36m0x%02x\033[0m, \
-commandID: \033[0;36m0x%02x\033[0m, argSz: \033[0;36m0x%02x\033[0m\n", 
-            f->preambule, f->fromByte, f->commandID, f->argSz);
+commandID: \033[0;36m0x%02x\033[0m, payloadSz: \033[0;36m0x%02x\033[0m\n", 
+            f->preambule, f->fromByte, f->commandID, f->payloadSz);
     
-    for(int i = 0; i < f->argSz; i++)
+    for(int i = 0; i < f->payloadSz; i++)
     {
-        printf("arg\033[0;31m%d\033[0m: \033[0;36m0x%08x\033[0m ",i,f->args[i]);
+        printf("\033[0;36m0x%02x\033[0m ",f->payload[i]);
     }
     printf("\npostambule: \033[0;36m0x%04x\033[0m\n",f->postambule);
 }

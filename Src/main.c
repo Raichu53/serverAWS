@@ -31,7 +31,8 @@ int create_listener(int port) {
 
 int main() {
 
-    int phone_listener,iot_listener,phone_fd,iot_fd,len = 0;
+    int phone_listener,iot_listener,phone_fd,
+        iot_fd,len,ret = 0;
     
     phone_listener = create_listener(PORT_PHONE);
     iot_listener = create_listener(PORT_IOT);
@@ -83,12 +84,14 @@ int main() {
             if(!isEmpty(phone_events))
             {
                 memset(f,0,sizeof(Frame));
-                parse_buffer(*(phone_events->items),f);                
+                ret = parse_buffer(*(phone_events->items),f);                
                 pop_front(phone_events);
-                
-                f->fromByte = FROM_MAIN_BYTE;
-                len = send(iot_fd, f, sizeof(Frame), 0);
-                printf("[Main_thread] : %d bytes sent to Plane_thread\n",len);
+                if(!ret)
+                {
+                    f->fromByte = FROM_MAIN_BYTE;
+                    len = send(iot_fd, f, sizeof(Frame), 0);
+                    printf("[Main_thread] : %d bytes sent to Plane_thread\n",len);
+                }
             }
             pthread_mutex_unlock(&phoneLock);
             
@@ -96,14 +99,18 @@ int main() {
             if(!isEmpty(plane_events))
             {
                 memset(f,0,sizeof(Frame));
-                parse_buffer(*(plane_events->items),f);
+                ret = parse_buffer(*(plane_events->items),f);
                 pop_front(plane_events);
-                
-                f->fromByte = FROM_MAIN_BYTE;
-                len = send(phone_fd, f, sizeof(Frame), 0);
-                printf("[Main_thread] : %d bytes sent to Phone_thread\n",len);
+                if(!ret)
+                {
+                    f->fromByte = FROM_MAIN_BYTE;
+                    len = send(phone_fd, f, sizeof(Frame), 0);
+                    printf("[Main_thread] : %d bytes sent to Phone_thread\n",len);
+                }
             }
             pthread_mutex_unlock(&planeLock);
+           
+            usleep(1000);
         }
         free(f);
         
