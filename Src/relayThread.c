@@ -9,34 +9,41 @@
 
 #include "main.h"
 #include "queue.h"
+#include "relayThread.h"
 
 void* relay_thread(void* args) 
 {
     ThreadArgs* targs = (ThreadArgs*)args;
-    
     unsigned char buffer[BUFFER_SIZE];
+ 
     
     while (atomic_load(targs->run)) 
     {
         int total = 0;
         bool stop = 0;
         memset(buffer,0,BUFFER_SIZE);
+        
         do
         {
+            while(0 == atomic_load(targs->isConnected)) { sleep(1); }
+            
             int len = recv(targs->from_fd, buffer + total, BUFFER_SIZE - total, 0);
             
             if(0 >= len)
             {
-                if( 0 == len )
-                    printf("[%s_thread] : \033[0;31m client disconnected\033[0m\n",targs->name);
-                else 
-                    printf("[%s_thread] : \033[0;31m recv unknown error: %s\033[0m\n",targs->name,strerror(errno));
+                atomic_store(targs->isConnected,0);
                 
-                atomic_store(targs->run,0);
+                if( 0 == len ){
+                    printf("[%s_thread] :\033[0;31m client not connected\033[0m\n",targs->name);
+                }
+                else { 
+                    printf("[%s_thread] :\033[0;31m unknown error: %s\033[0m\n",targs->name,strerror(errno));
+                }
+        
                 stop = 1;
-            } else 
+            } else {
 				total += len;
-			
+            }
 			
 			if(total == BUFFER_SIZE)
 			{
@@ -78,4 +85,28 @@ void* relay_thread(void* args)
     printf("\033[0;32m[%s_thread] : finished successfully\033[0m\n",targs->name);
     free(targs);
     return NULL;
+}
+int create_listener(int port) {
+
+    int sockfd;
+    struct sockaddr_in addr;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(0 > sockfd)
+        printf("socket() failed : %s\n",strerror(errno));
+    
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    const int en = 1;
+    if (setsockopt(sockfd, SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&en,sizeof(int)) < 0)
+        printf("setsockopt() failed : %s\n",strerror(errno));
+
+    if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+        printf("bind() failed : %s\n",strerror(errno));
+    
+    listen(sockfd, 1);
+    printf("Listening on port %d...\n", port);
+    return sockfd;
 }

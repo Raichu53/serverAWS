@@ -34,16 +34,13 @@ bool parse_buffer ( unsigned char* buffer, Frame* f )
     if(f->payloadSz < MAX_ARGS)
     {
         memcpy(&(f->payload),buffer,dataSz);
-        buffer += dataSz;
-        
         memset((&(f->payload)) + f->payloadSz, 0, (MAX_ARGS - f->payloadSz));
-        buffer += (MAX_ARGS - f->payloadSz); 
     }
     else
     {
         memset(&(f->payload),0,MAX_ARGS);
-        buffer += MAX_ARGS;
     }
+    buffer += MAX_ARGS;
     
     dataSz = sizeof(f->postambule);
     memcpy(&(f->postambule),buffer,dataSz);

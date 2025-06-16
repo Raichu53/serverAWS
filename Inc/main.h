@@ -34,6 +34,7 @@ typedef struct {
     struct Queue* events;
     pthread_mutex_t lock; 
     atomic_bool* run;
+    atomic_bool* isConnected;
 } ThreadArgs; 
 
 typedef struct {
@@ -46,6 +47,5 @@ typedef struct {
     
     uint16_t    postambule;
 }  __attribute__((packed)) Frame;
-
 
 #endif //__MAIN_HEADER__
