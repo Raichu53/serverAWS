@@ -16,7 +16,7 @@
 int main() {
 
     int phone_listener,iot_listener,phone_fd,
-        iot_fd,len,ret = 0;
+        iot_fd = 0;
     
     phone_listener = create_listener(PORT_PHONE);
     iot_listener = create_listener(PORT_IOT);
@@ -38,10 +38,8 @@ int main() {
     initQueue(phone_events);
     initQueue(plane_events);
     
-
     if( phone_args != NULL && iot_args != NULL )
     {
-  
         phone_args->name = "Phone";
         phone_args->events = phone_events;
         phone_args->lock = phoneLock;
@@ -63,7 +61,8 @@ int main() {
                 
         while(atomic_load(run))
         {
-            if(0 == atomic_load(bPhoneClient)) 
+            
+            if( 0 == atomic_load(bPhoneClient)) 
             { 
                 printf("\033[0;33mWaiting for Phone to connect...\033[0m\n");
                 phone_fd = accept(phone_listener, NULL, NULL);
@@ -80,45 +79,24 @@ int main() {
                 atomic_store(bPlaneClient,1);
             }
             
-            while(atomic_load(bPhoneClient) && atomic_load(bPlaneClient))
+            while(atomic_load(bPhoneClient) && atomic_load(bPlaneClient) && atomic_load(run))
             {
-
-                pthread_mutex_lock(&phoneLock);
-                if(!isEmpty(phone_events))
-                {
-                    memset(f,0,sizeof(Frame));
-                    ret = parse_buffer(*(phone_events->items),f);                
-                    pop_front(phone_events);
-                    if(!ret)
-                    {
-                        f->fromByte = FROM_MAIN_BYTE;
-                        len = send(iot_fd, f, sizeof(Frame), 0);
-                        printf("[Main_thread] : %d bytes sent to Plane_thread\n",len);
-                    }
-                }
-                pthread_mutex_unlock(&phoneLock);
-
-                pthread_mutex_lock(&planeLock);
-                if(!isEmpty(plane_events))
-                {
-                    memset(f,0,sizeof(Frame));
-                    ret = parse_buffer(*(plane_events->items),f);
-                    pop_front(plane_events);
-                    if(!ret)
-                    {
-                        f->fromByte = FROM_MAIN_BYTE;
-                        len = send(phone_fd, f, sizeof(Frame), 0);
-                        printf("[Main_thread] : %d bytes sent to Phone_thread\n",len);
-                    }
-                }
-                pthread_mutex_unlock(&planeLock);
+                routine(&phoneLock,run,phone_events,f,iot_fd, "Phone");
+                routine(&planeLock,run,plane_events,f,phone_fd, "Plane");
+                
                 usleep(1000);
             }
             usleep(1000);
         }
         free(f);
-        pthread_join(phone_thread, NULL);
+        
+        unsigned char stopBuffer[BUFFER_SIZE]; //pour sortir du recv() bloquant
+        memset(stopBuffer,0,BUFFER_SIZE);
+        
+        send(iot_fd, stopBuffer, BUFFER_SIZE,0);
         pthread_join(iot_thread, NULL); 
+        send(phone_fd, stopBuffer, BUFFER_SIZE,0);
+        pthread_join(phone_thread, NULL);
     }
 
     free(run);
@@ -132,4 +110,43 @@ int main() {
     
     printf("\033[0;32m[Main_thread] : finished successfully\033[0m\n");
     return 0;
+}
+
+void routine (pthread_mutex_t* lock, atomic_bool* run,
+              struct Queue* q, Frame* f, int fd, const char* target)
+{
+    int ret,len = 0;
+    
+    pthread_mutex_lock(lock);
+    if(!isEmpty(q))
+    {
+        memset(f,0,sizeof(Frame));
+        ret = parse_buffer(*(q->items),f);
+        pop_front(q);
+        
+        if(!ret)
+        {
+            bool status = 1;
+            
+            if(f->commandID == STOP_SRV) {
+                printf("stop command received, ending...\n");
+                atomic_store(run,0);
+                status = 0;
+            }
+            else if(f->commandID == TELEMETRY) {
+                //faire des tests par rapports au valeurs precedentes, etc...
+            }
+            else if(f->commandID == MOTOR_SPEED) {
+                //faire des tests par rapports au valeurs precedentes, etc...
+            }
+            
+            if(status) { 
+                f->fromByte = FROM_MAIN_BYTE;
+                int len = send(fd, f, sizeof(Frame), 0);
+                printf("[Main_thread] : %d bytes sent to %s_thread\n", len, target);
+            }
+        }
+    }
+    
+    pthread_mutex_unlock(lock);
 }

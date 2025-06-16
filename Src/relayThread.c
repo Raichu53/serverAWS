@@ -16,21 +16,29 @@ void* relay_thread(void* args)
     ThreadArgs* targs = (ThreadArgs*)args;
     unsigned char buffer[BUFFER_SIZE];
  
-    
     while (atomic_load(targs->run)) 
     {
+        bool stop;
         int total = 0;
-        bool stop = 0;
         memset(buffer,0,BUFFER_SIZE);
-        
         do
         {
-            while(0 == atomic_load(targs->isConnected)) { sleep(1); }
+            stop = 0;
+            //boucle d'attente de reconnexion
+            while(0 == atomic_load(targs->isConnected))
+            { 
+                //verification que le main thread ne se fini pas
+                if(0 == atomic_load(targs->run))
+                    break;
+                else
+                    sleep(1); 
+            }
             
             int len = recv(targs->from_fd, buffer + total, BUFFER_SIZE - total, 0);
             
             if(0 >= len)
             {
+                //il y a eu une deconnexion, isConnected passe false
                 atomic_store(targs->isConnected,0);
                 
                 if( 0 == len ){
@@ -40,9 +48,9 @@ void* relay_thread(void* args)
                     printf("[%s_thread] :\033[0;31m unknown error: %s\033[0m\n",targs->name,strerror(errno));
                 }
         
-                stop = 1;
+                stop = 1; //fin du do-while
             } else {
-				total += len;
+				total += len; //au cas ou on a pas tout recu d'un coup
             }
 			
 			if(total == BUFFER_SIZE)
@@ -50,18 +58,19 @@ void* relay_thread(void* args)
                 switch(buffer[FROM_BYTE_POS])
                 {
                     case FROM_DEVICE_BYTE:
+                        //reception de raw data depuis un des devices (flag 0x6f)
                         pthread_mutex_lock(&(targs->lock));
                         push_back(targs->events,buffer);
                         pthread_mutex_unlock(&(targs->lock));
                         break;
                         
                     case FROM_MAIN_BYTE:
+                        //envoie la data analyse par le main thread (flag 0xde)
                         len = send(targs->from_fd,buffer,BUFFER_SIZE,0);
                     
                         if(0 >= len)
                         {
                             printf("[%s_thread] : \033[0;31msend error: %s\033[0m\n",targs->name,strerror(errno));
-                            atomic_store(targs->run,0);
                             stop = 1;
                         }
                         else
@@ -78,7 +87,7 @@ void* relay_thread(void* args)
                 }
 			}
 			
-        } while(total != BUFFER_SIZE && !stop);
+        } while(total != BUFFER_SIZE && !stop); //tant que le buffer n'est pas plein + pas de deconnexion
     }
 
     close(targs->from_fd);

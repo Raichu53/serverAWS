@@ -8,6 +8,7 @@ void printFrame( Frame* f );
 uint8_t checkFrame( Frame* f );
 bool isCMDidValid(uint8_t cID);
 const char* codeTostring(uint8_t errCode);
-// bool isPayloadCoherent(uint8_t cID);
+bool checkParamSz( uint8_t cID, uint8_t sz );
+
 #endif //__PARSER_HEADER__
 

@@ -11,8 +11,12 @@
 #define FROM_DEVICE_BYTE    0x6F
 #define MAX_ARGS    121
 
+#define STOP_SRV    0X69
+#define STOP_SRV_P_SZ 4
+
 #define TELEMETRY   0x20
 #define TELEMETRY_P_SZ 16
+
 #define MOTOR_SPEED 0x21
 #define MOTOR_SPEED_P_SZ 32 
 
@@ -22,6 +26,7 @@
 #define BAD_COMMANDID 3
 #define BAD_POSTAMBULE 4
 #define PAYLOAD_TOO_BIG 5
+#define INCOHERENT_PAYLOAD 6
 
 #include <stdint.h>
 #include <stdatomic.h>
@@ -47,5 +52,8 @@ typedef struct {
     
     uint16_t    postambule;
 }  __attribute__((packed)) Frame;
+
+void routine (pthread_mutex_t* lock, atomic_bool* run,
+              struct Queue* q, Frame* f, int fd, const char* target);
 
 #endif //__MAIN_HEADER__
