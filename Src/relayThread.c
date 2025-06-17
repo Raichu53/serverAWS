@@ -11,6 +11,9 @@
 #include "queue.h"
 #include "relayThread.h"
 
+/*
+ * Main loop des threads
+ */
 void* relay_thread(void* args) 
 {
     ThreadArgs* targs = (ThreadArgs*)args;
@@ -27,7 +30,7 @@ void* relay_thread(void* args)
             //boucle d'attente de reconnexion
             while(0 == atomic_load(targs->isConnected))
             { 
-                //verification que le main thread ne se fini pas
+                //verification que le main thread ne se fini pas entre temps
                 if(0 == atomic_load(targs->run))
                     break;
                 else
@@ -55,17 +58,19 @@ void* relay_thread(void* args)
 			
 			if(total == BUFFER_SIZE)
 			{
+                //on regarde d'ou provient la trame, info sur le byte a l'offset FROM_BYTE_POS
                 switch(buffer[FROM_BYTE_POS])
                 {
                     case FROM_DEVICE_BYTE:
-                        //reception de raw data depuis un des devices (flag 0x6f)
+                        //reception de raw data depuis un des devices (flag 0x6f),
+                        //envoie au main via la file des evenements du device
                         pthread_mutex_lock(&(targs->lock));
                         push_back(targs->events,buffer);
                         pthread_mutex_unlock(&(targs->lock));
                         break;
                         
                     case FROM_MAIN_BYTE:
-                        //envoie la data analyse par le main thread (flag 0xde)
+                        //envoie la data analyse par le main thread au device connecte 
                         len = send(targs->from_fd,buffer,BUFFER_SIZE,0);
                     
                         if(0 >= len)
@@ -95,13 +100,14 @@ void* relay_thread(void* args)
     free(targs);
     return NULL;
 }
+
 int create_listener(int port) {
 
     int sockfd;
     struct sockaddr_in addr;
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(0 > sockfd)
+    if(sockfd < 0)
         printf("socket() failed : %s\n",strerror(errno));
     
     addr.sin_family = AF_INET;
@@ -109,7 +115,7 @@ int create_listener(int port) {
     addr.sin_port = htons(port);
 
     const int en = 1;
-    if (setsockopt(sockfd, SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&en,sizeof(int)) < 0)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &en, sizeof(int)) < 0)
         printf("setsockopt() failed : %s\n",strerror(errno));
 
     if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)

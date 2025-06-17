@@ -9,6 +9,13 @@
 #include "queue.h"
 #include "parser.h"
 
+/*
+ * Cette fonction traduit un raw buffer au format Frame
+ * effectue les verifications de formatage
+ * 
+ * @return  0 si OK
+ *          1 si erreur
+ */
 bool parse_buffer ( unsigned char* buffer, Frame* f ) 
 {
     bool status = 0;
@@ -31,10 +38,10 @@ bool parse_buffer ( unsigned char* buffer, Frame* f )
     buffer += dataSz;
     
     dataSz = f->payloadSz;
-    if(f->payloadSz < MAX_ARGS)
+    if(dataSz < MAX_ARGS)
     {
         memcpy(&(f->payload),buffer,dataSz);
-        memset((&(f->payload)) + f->payloadSz, 0, (MAX_ARGS - f->payloadSz));
+        memset((&(f->payload)) + dataSz, 0, (MAX_ARGS - dataSz));
     }
     else
     {
@@ -57,7 +64,11 @@ bool parse_buffer ( unsigned char* buffer, Frame* f )
     
     return status;
 }
-
+/*
+ * verifie les champs de Frame et associe un code d'erreur
+ * @return  0 si OK
+ *          >0 si erreur
+ */
 uint8_t checkFrame( Frame* f )
 {
     uint8_t status = 0;
@@ -75,6 +86,11 @@ uint8_t checkFrame( Frame* f )
  
     return status;
 }
+/*
+ * traduit un code d'erreur en entier vers une string
+ * @return  la string associee si OK
+ *          "UNKNOWN" si erreur
+ */
 const char* codeTostring(uint8_t errCode)
 {
     switch(errCode)
@@ -96,7 +112,11 @@ const char* codeTostring(uint8_t errCode)
     }
     return "UNKNOWN";
 }
-
+/*
+ * verifie que le command ID est existant
+ * @return  1 si OK
+ *          0 si erreur
+ */
 bool isCMDidValid(uint8_t cID) 
 {
     bool status = 1;
@@ -114,6 +134,12 @@ bool isCMDidValid(uint8_t cID)
     }
     return status;
 }
+/*
+ * compare le champ payloadSz recu au payload associe
+ * a la commande 
+ * @return  1 si OK
+ *          0 si erreur
+ */
 bool checkParamSz( uint8_t cID, uint8_t sz ) 
 {
     bool status = 1;
@@ -139,6 +165,9 @@ bool checkParamSz( uint8_t cID, uint8_t sz )
     
     return status;
 }
+/*
+ * print dans le terminal tout le contenu d'une Frame
+ */
 void printFrame( Frame* f )
 {
     printf("preambule: \033[0;36m0x%04x\033[0m, fromByte: \033[0;36m0x%02x\033[0m, \
