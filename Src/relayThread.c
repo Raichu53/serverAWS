@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdatomic.h>
+#include <systemd/sd-journal.h>
 
 #include "main.h"
 #include "queue.h"
@@ -45,10 +46,10 @@ void* relay_thread(void* args)
                 atomic_store(targs->isConnected,0);
                 
                 if( 0 == len ){
-                    printf("[%s_thread] :\033[0;31m client not connected\033[0m\n",targs->name);
+                    sd_journal_print(LOG_ERR,"[%s_thread] :\033[0;31m client not connected\033[0m\n",targs->name);
                 }
                 else { 
-                    printf("[%s_thread] :\033[0;31m unknown error: %s\033[0m\n",targs->name,strerror(errno));
+                    sd_journal_print(LOG_CRIT,"[%s_thread] :\033[0;31m unknown error: %s\033[0m\n",targs->name,strerror(errno));
                 }
         
                 stop = 1; //fin du do-while
@@ -75,17 +76,17 @@ void* relay_thread(void* args)
                     
                         if(0 >= len)
                         {
-                            printf("[%s_thread] : \033[0;31msend error: %s\033[0m\n",targs->name,strerror(errno));
+                            sd_journal_print(LOG_CRIT,"[%s_thread] : \033[0;31msend error: %s\033[0m\n",targs->name,strerror(errno));
                             stop = 1;
                         }
                         else
                         {
-                            printf("[%s_thread] : %d bytes sent to %s_client\n",targs->name,len,targs->name);
+                            sd_journal_print(LOG_DEBUG,"[%s_thread] : %d bytes sent to %s_client\n",targs->name,len,targs->name);
                         }
                         break;
                         
                     default:
-                        printf("[%s_thread] : \033[0;31munknown from_byte value : %x\033[0m\n",
+                        sd_journal_print(LOG_ERR,"[%s_thread] : \033[0;31munknown from_byte value : %x\033[0m\n",
                                targs->name,buffer[FROM_BYTE_POS]);
                         stop = 1;
                         break;
@@ -96,7 +97,7 @@ void* relay_thread(void* args)
     }
 
     close(targs->from_fd);
-    printf("\033[0;32m[%s_thread] : finished successfully\033[0m\n",targs->name);
+    sd_journal_print(LOG_INFO,"\033[0;32m[%s_thread] : finished successfully\033[0m\n",targs->name);
     free(targs);
     return NULL;
 }
@@ -108,7 +109,7 @@ int create_listener(int port) {
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd < 0)
-        printf("socket() failed : %s\n",strerror(errno));
+        sd_journal_print(LOG_CRIT,"socket() failed : %s\n",strerror(errno));
     
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
@@ -116,12 +117,12 @@ int create_listener(int port) {
 
     const int en = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &en, sizeof(int)) < 0)
-        printf("setsockopt() failed : %s\n",strerror(errno));
+        sd_journal_print(LOG_CRIT,"setsockopt() failed : %s\n",strerror(errno));
 
     if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-        printf("bind() failed : %s\n",strerror(errno));
+        sd_journal_print(LOG_CRIT,"bind() failed : %s\n",strerror(errno));
     
     listen(sockfd, 1);
-    printf("Listening on port %d...\n", port);
+    sd_journal_print(LOG_DEBUG,"Listening on port %d...\n", port);
     return sockfd;
 }

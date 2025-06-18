@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
+#include <systemd/sd-journal.h>
 
 #include "main.h"
 #include "queue.h"
@@ -18,7 +19,7 @@ void initQueue( Queue_t* q )
         q->items[i] = malloc(BUFFER_SIZE);
         if(q->items[i] == NULL)
         {
-            printf("failed to create queue : %s\n",strerror(errno));
+            sd_journal_print(LOG_CRIT,"failed to create queue : %s\n",strerror(errno));
             break;
         }
     }

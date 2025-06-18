@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <systemd/sd-journal.h>
 
 #include "main.h"
 #include "queue.h"
@@ -56,7 +57,7 @@ bool parse_buffer ( unsigned char* buffer, Frame* f )
     ret = checkFrame(f);
     if(ret)
     {
-        printf("[Main_thread] :\033[0;31m checkFrame returned error code %d (%s)\033[0m\n",
+        sd_journal_print(LOG_ERR,"[Main_thread] :\033[0;31m checkFrame returned error code %d (%s)\033[0m\n",
                ret,codeTostring(ret));
         printFrame(f);
         status = 1;
@@ -170,15 +171,15 @@ bool checkParamSz( uint8_t cID, uint8_t sz )
  */
 void printFrame( Frame* f )
 {
-    printf("preambule: \033[0;36m0x%04x\033[0m, fromByte: \033[0;36m0x%02x\033[0m, \
+    sd_journal_print(LOG_DEBUG,"preambule: \033[0;36m0x%04x\033[0m, fromByte: \033[0;36m0x%02x\033[0m, \
 commandID: \033[0;36m0x%02x\033[0m, payloadSz: \033[0;36m0x%02x\033[0m\n", 
             f->preambule, f->fromByte, f->commandID, f->payloadSz);
     
     for(int i = 0; i < f->payloadSz; i++)
     {
-        printf("\033[0;36m0x%02x\033[0m ",f->payload[i]);
+        sd_journal_print(LOG_DEBUG,"\033[0;36m0x%02x\033[0m ",f->payload[i]);
     }
-    printf("\npostambule: \033[0;36m0x%04x\033[0m\n",f->postambule);
+    sd_journal_print(LOG_DEBUG,"\npostambule: \033[0;36m0x%04x\033[0m\n",f->postambule);
 }
 
 

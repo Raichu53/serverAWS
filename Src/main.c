@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <systemd/sd-journal.h>
 
 #include "main.h"
 #include "queue.h"
@@ -73,17 +74,17 @@ int main( void ) {
         {
             if( 0 == atomic_load(bPhoneClient)) 
             { 
-                printf("\033[0;33mWaiting for Phone to connect...\033[0m\n");
+                sd_journal_print(LOG_NOTICE,"\033[0;33mWaiting for Phone to connect...\033[0m\n");
                 phone_fd = accept(phone_listener, NULL, NULL);
-                printf("\033[0;32mPhone connected!\033[0m\n");
+                sd_journal_print(LOG_NOTICE,"\033[0;32mPhone connected!\033[0m\n");
                 phone_args->from_fd = phone_fd;
                 atomic_store(bPhoneClient,1);
             }
             if( 0 == atomic_load(bPlaneClient)) 
             {
-                printf("\033[0;33mWaiting for plane to connect...\033[0m\n");
+                sd_journal_print(LOG_NOTICE,"\033[0;33mWaiting for Plane to connect...\033[0m\n");
                 iot_fd = accept(iot_listener, NULL, NULL);
-                printf("\033[0;32mPlane connected!\033[0m\n");
+                sd_journal_print(LOG_NOTICE,"\033[0;32mPlane connected!\033[0m\n");
                 iot_args->from_fd = iot_fd;
                 atomic_store(bPlaneClient,1);
             }
@@ -118,7 +119,7 @@ int main( void ) {
     close(phone_listener);
     close(iot_listener);
     
-    printf("\033[0;32m[Main_thread] : finished successfully\033[0m\n");
+    sd_journal_print(LOG_INFO,"\033[0;32m[Main_thread] : finished successfully\033[0m\n");
     return 0;
 }
 /*
@@ -150,7 +151,7 @@ void routine (pthread_mutex_t* lock, atomic_bool* run,
         bool status = 1;
         
         if(f->commandID == STOP_SRV) {
-            printf("stop command received, ending...\n");
+            sd_journal_print(LOG_WARNING,"stop command received, ending...\n");
             atomic_store(run,0);
             status = 0;
         }
@@ -164,7 +165,7 @@ void routine (pthread_mutex_t* lock, atomic_bool* run,
         if(status) { 
             f->fromByte = FROM_MAIN_BYTE;
             int len = send(fd, f, sizeof(Frame), 0);
-            printf("[Main_thread] : %d bytes sent to %s_thread\n", len, target);
+            sd_journal_print(LOG_DEBUG,"[Main_thread] : %d bytes sent to %s_thread\n", len, target);
         }
     }
 }
