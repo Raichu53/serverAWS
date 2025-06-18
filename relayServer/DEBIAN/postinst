@@ -1,0 +1,34 @@
+#!/bin/bash
+
+echo -n "Add new relayServer service : "
+
+cat > /usr/lib/systemd/system/relayServer.service << EOF && echo Done || echo Failure
+[Unit]
+Description=relay server between 2 devices
+After=multi-user.target
+
+[Service]
+WorkingDirectory=/home/ubuntu
+User=ubuntu
+Group=ubuntu
+ExecStartPre=
+ExecStart=/usr/local/bin/main.out
+Restart=on-failure
+RestartSec=1s
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Refresh systemd services
+systemctl daemon-reload
+
+# Enable systemd relayServer service
+echo -n "Enable cortex service : "
+systemctl enable relayServer.service && echo Done || echo Failure
+
+# start systemd relayServer service
+echo -n "Start cortex service : "
+systemctl start relayServer.service && echo Done || echo Failure

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+echo "Disabling relayServer service"
+systemctl is-active --quiet relayServer.service && systemctl stop relayServer.service
+systemctl disable relayServer.service
+
+echo "Remove relayServer service"
+rm -f /usr/lib/systemd/system/relayServer.service
+
+rm -f /usr/local/bin/main.out

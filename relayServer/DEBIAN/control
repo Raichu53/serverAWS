@@ -1,0 +1,5 @@
+Package: relayServer
+Version: 1.0
+Maintainer: Raichu53
+Architecture: all
+Description: a server using sockets to pass data from a device to another
